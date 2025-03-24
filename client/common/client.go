@@ -2,6 +2,7 @@ package common
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"net"
 	"time"
@@ -37,8 +38,9 @@ func NewClient(config ClientConfig) *Client {
 // CreateClientSocket Initializes client socket. In case of
 // failure, error is printed in stdout/stderr and exit 1
 // is returned
-func (c *Client) createClientSocket() error {
-	conn, err := net.Dial("tcp", c.config.ServerAddress)
+func (c *Client) createClientSocket(ctx context.Context) error {
+	dialer := net.Dialer{}
+	conn, err := dialer.DialContext(ctx, "tcp", c.config.ServerAddress)
 	if err != nil {
 		log.Criticalf(
 			"action: connect | result: fail | client_id: %v | error: %v",
@@ -51,12 +53,21 @@ func (c *Client) createClientSocket() error {
 }
 
 // StartClientLoop Send messages to the client until some time threshold is met
-func (c *Client) StartClientLoop() {
+func (c *Client) StartClientLoop(ctx context.Context) {
 	// There is an autoincremental msgID to identify every message sent
 	// Messages if the message amount threshold has not been surpassed
 	for msgID := 1; msgID <= c.config.LoopAmount; msgID++ {
+		select {
+		case <-ctx.Done():
+			log.Infof("closing client connection due to received signal, client_id: %v", c.config.ID)
+			return
+		default:
+		}
+
 		// Create the connection the server in every loop iteration. Send an
-		c.createClientSocket()
+		if err := c.createClientSocket(ctx); err != nil {
+			return
+		}
 
 		// TODO: Modify the send to avoid short-write
 		fmt.Fprintf(
@@ -82,8 +93,13 @@ func (c *Client) StartClientLoop() {
 		)
 
 		// Wait a time between sending one message and the next one
-		time.Sleep(c.config.LoopPeriod)
-
+		select {
+		case <-ctx.Done():
+			log.Infof("closing client connection due to received signal, client_id: %v", c.config.ID)
+			return
+		case <-time.After(c.config.LoopPeriod):
+		}
 	}
+
 	log.Infof("action: loop_finished | result: success | client_id: %v", c.config.ID)
 }
