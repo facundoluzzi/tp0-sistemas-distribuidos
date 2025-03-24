@@ -99,6 +99,8 @@ Estando en el root del proyecto, se puede utilizar el script bash `generar_compo
 ### Ejercicio N°2:
 Modificar el cliente y el servidor para lograr que realizar cambios en el archivo de configuración no requiera reconstruír las imágenes de Docker para que los mismos sean efectivos. La configuración a través del archivo correspondiente (`config.ini` y `config.yaml`, dependiendo de la aplicación) debe ser inyectada en el container y persistida por fuera de la imagen (hint: `docker volumes`).
 
+#### Instrucciones de uso ejercicio N°2:
+Ejecutando comandos dentro del contenedor se puede verificar que la configuración se actualiza correctamente, una vez se vuelvan a levantar los contenedores luego de las modificaciones. Por ejemplo, modificando el puerto del servidor.
 
 ### Ejercicio N°3:
 Crear un script de bash `validar-echo-server.sh` que permita verificar el correcto funcionamiento del servidor utilizando el comando `netcat` para interactuar con el mismo. Dado que el servidor es un echo server, se debe enviar un mensaje al servidor y esperar recibir el mismo mensaje enviado.
