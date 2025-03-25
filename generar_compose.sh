@@ -18,6 +18,7 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - LOGGING_LEVEL=DEBUG
+      - MAX_CONNECTIONS=5
     volumes:
       - ./server/config.ini:/app/config.ini
     networks:
@@ -34,6 +35,11 @@ for ((i=1; i<=CLIENTS_AMOUNT; i++)); do
     environment:
       - CLI_ID=$i
       - CLI_LOG_LEVEL=DEBUG
+      - NOMBRE=Santiago Lionel
+      - APELLIDO=Lorca
+      - DOCUMENTO=30904465
+      - NACIMIENTO=1999-03-17
+      - NUMERO=757$i
     volumes:
       - ./client/config.yaml:/app/config.yaml
     networks:

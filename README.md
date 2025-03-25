@@ -143,6 +143,28 @@ Se deberá implementar un módulo de comunicación entre el cliente y el servido
 * Correcta separación de responsabilidades entre modelo de dominio y capa de comunicación.
 * Correcto empleo de sockets, incluyendo manejo de errores y evitando los fenómenos conocidos como [_short read y short write_](https://cs61.seas.harvard.edu/site/2018/FileDescriptors/).
 
+#### Protocolo de comunicacion
+La comunicacion entre los clientes y el servidor se basa con mensajes serializados en formato JSON, siguiendo un esquema que permite la transmision de diferentes tipos de mensajes.
+
+Al recibir un mensaje, el servidor dependiendo el tipo elige como manejarlo. Una vez procesado, se devuelve el ACK correspondiente, junto al numero de apuesta.
+
+##### Estructura del mensaje
+
+`{
+  "type": "bet",
+  "data": {
+    "client_id": "1",
+    "first_name": "Santiago Lionel",
+    "last_name": "Lorca",
+    "document_number": "30904465",
+    "birth_date": "1999-03-17",
+    "number": "7574"
+  }
+}`
+
+
+#### Instrucciones de uso ejercicio N°5:
+Ejecutando el comando `make up`, se pueden visualizar los logs del lado de los clientes, como del servidor.
 
 ### Ejercicio N°6:
 Modificar los clientes para que envíen varias apuestas a la vez (modalidad conocida como procesamiento por _chunks_ o _batchs_). 

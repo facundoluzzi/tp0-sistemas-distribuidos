@@ -1,13 +1,12 @@
 import csv
 import datetime
-import time
-
 
 """ Bets storage location. """
 STORAGE_FILEPATH = "./bets.csv"
 """ Simulated winner number in the lottery contest. """
 LOTTERY_WINNER_NUMBER = 7574
 
+ACK_MESSAGE = "BET_ACK:{}"
 
 """ A lottery bet registry. """
 class Bet:
@@ -23,7 +22,18 @@ class Bet:
         self.document = document
         self.birthdate = datetime.date.fromisoformat(birthdate)
         self.number = int(number)
-
+    
+    @classmethod
+    def from_json(cls, bet_data):
+        return cls(
+            bet_data["client_id"],
+            bet_data["first_name"],
+            bet_data["last_name"],
+            bet_data["document_number"],
+            bet_data["birth_date"],
+            bet_data["number"],
+        )
+        
 """ Checks whether a bet won the prize or not. """
 def has_won(bet: Bet) -> bool:
     return bet.number == LOTTERY_WINNER_NUMBER

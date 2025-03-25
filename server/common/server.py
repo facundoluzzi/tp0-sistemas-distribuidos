@@ -1,7 +1,12 @@
+import json
+import os
 import socket
 import logging
 import signal
 import sys
+
+from common.utils import Bet, store_bets
+from common import utils
 
 class Server:
     def __init__(self, port, listen_backlog):
@@ -11,6 +16,7 @@ class Server:
         self._server_socket.listen(listen_backlog)
         self.client_connections = []
         self.is_running = True
+        self.max_connections = int(os.environ.get("MAX_CONNECTIONS", 5))
         
         signal.signal(signal.SIGTERM, self.graceful_shutdown)
         signal.signal(signal.SIGINT, self.graceful_shutdown)
@@ -23,9 +29,15 @@ class Server:
         communication with a client. After client with communucation
         finishes, servers starts to accept new connections again
         """
-
         while self.is_running:
             client_sock = self.__accept_new_connection()
+            
+            if len(self.client_connections) >= self.max_connections:
+                logging.info(f'max clients connected {self.max_connections}, rejecting new connection')
+                client_sock.sendall(b"ERROR: Maximum number of agencies reached\n")
+                client_sock.close()
+                continue 
+            
             self.client_connections.append(client_sock)
             self.__handle_client_connection(client_sock)
             
@@ -37,12 +49,33 @@ class Server:
         client socket will also be closed
         """
         try:
-            # TODO: Modify the receive to avoid short-reads
-            msg = client_sock.recv(1024).rstrip().decode('utf-8')
+            msg = b''
+            while True:
+                chunk = client_sock.recv(1024)
+                if not chunk:
+                    break
+
+                msg += chunk
+                if b'\n' in chunk:
+                    break
+
+            msg = msg.rstrip().decode()
+            
             addr = client_sock.getpeername()
             logging.info(f'action: receive_message | result: success | ip: {addr[0]} | msg: {msg}')
-            # TODO: Modify the send to avoid short-writes
-            client_sock.send("{}\n".format(msg).encode('utf-8'))
+
+            message = json.loads(msg)
+            msg_type = message.get("type")
+            data = message.get("data")
+            bet = Bet.from_json(data)  
+            
+            if msg_type == "bet":
+                store_bets([bet])
+                logging.info(f'action: apuesta_almacenada | result: success | dni: {bet.document} | numero: {bet.number}')
+                
+                ack_response = utils.ACK_MESSAGE.format(bet.agency)
+
+                client_sock.sendall(ack_response.encode('utf-8'))
         except OSError as e:
             logging.error("action: receive_message | result: fail | error: {e}")
         finally:
@@ -56,7 +89,6 @@ class Server:
         Function blocks until a connection to a client is made.
         Then connection created is printed and returned
         """
-
         # Connection arrived
         logging.info('action: accept_connections | result: in_progress')
         c, addr = self._server_socket.accept()
