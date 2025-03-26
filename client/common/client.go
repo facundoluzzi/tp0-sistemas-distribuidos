@@ -150,12 +150,27 @@ func (c *Client) StartClientLoop(ctx context.Context) {
 			log.Infof("action: apuestas_enviadas | result: success | dni: %v | numeros: %v", currentBatch[0].DocumentNumber, strings.Join(currentBetIDs, "-"))
 		}
 	}
+
+	err = c.sendMessage("delivery-ended", nil)
+	if err != nil {
+		log.Fatalf(err.Error())
+	}
+
+	winnersCount, err := c.receiveMessage()
+	if err != nil {
+		log.Fatalf(err.Error())
+	}
+
+	log.Infof("action: consulta_ganadores | result: success | cant_ganadores: %s", winnersCount)
 }
 
 func (c *Client) sendMessage(messageType string, data interface{}) error {
 	msg := Message{
 		Type: messageType,
-		Data: data,
+	}
+
+	if data != nil {
+		msg.Data = data
 	}
 
 	bytes, err := json.Marshal(msg)
@@ -167,6 +182,8 @@ func (c *Client) sendMessage(messageType string, data interface{}) error {
 
 		return err
 	}
+
+	log.Infof("action: send_message | message_type: %s | result: success", messageType)
 
 	writer := bufio.NewWriter(c.conn)
 	writer.Write(append(bytes, '\n'))
