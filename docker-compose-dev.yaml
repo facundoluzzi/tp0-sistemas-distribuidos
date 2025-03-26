@@ -27,6 +27,7 @@ services:
       - NUMERO=7574
     volumes:
       - ./client/config.yaml:/app/config.yaml
+      - ./.data/agency-1.csv:/agency.csv
     networks:
       - testing_net
     depends_on:

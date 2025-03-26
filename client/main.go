@@ -40,6 +40,9 @@ func InitConfig() (*viper.Viper, error) {
 	v.BindEnv("loop", "period")
 	v.BindEnv("loop", "amount")
 	v.BindEnv("log", "level")
+	v.BindEnv("file", "path")
+	v.BindEnv("batch", "maxSize")
+	v.BindEnv("batch", "maxAmount")
 
 	// Try to read configuration from config file. If config file
 	// does not exists then ReadInConfig will fail but configuration
@@ -90,6 +93,9 @@ func PrintConfig(v *viper.Viper) {
 		v.GetInt("loop.amount"),
 		v.GetDuration("loop.period"),
 		v.GetString("log.level"),
+		v.GetString("file.path"),
+		v.GetInt("batch.maxSize"),
+		v.GetInt("batch.maxAmount"),
 	)
 }
 
@@ -109,11 +115,19 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
+	batchLimitAmount := v.GetInt("batch.maxAmount")
+	if batchLimitAmount == 0 {
+		batchLimitAmount = common.DefaultBatchLimitAmount
+	}
+
 	clientConfig := common.ClientConfig{
-		ServerAddress: v.GetString("server.address"),
-		ID:            v.GetString("id"),
-		LoopAmount:    v.GetInt("loop.amount"),
-		LoopPeriod:    v.GetDuration("loop.period"),
+		ServerAddress:    v.GetString("server.address"),
+		ID:               v.GetString("id"),
+		LoopAmount:       v.GetInt("loop.amount"),
+		LoopPeriod:       v.GetDuration("loop.period"),
+		FilePath:         v.GetString("file.path"),
+		BatchSize:        v.GetInt("batch.maxSize"),
+		BatchLimitAmount: batchLimitAmount,
 	}
 
 	client := common.NewClient(clientConfig)

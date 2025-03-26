@@ -6,5 +6,8 @@ loop:
   period: "5s"
 log:
   level: "INFO"
+file:
+  path: "./agency.csv"
 batch:
-  maxAmount: 10
+  maxSize: 2
+  maxAmount: 8192

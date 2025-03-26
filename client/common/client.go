@@ -3,11 +3,13 @@ package common
 import (
 	"bufio"
 	"context"
+	"encoding/csv"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"net"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/op/go-logging"
@@ -17,10 +19,13 @@ var log = logging.MustGetLogger("log")
 
 // ClientConfig Configuration used by the client
 type ClientConfig struct {
-	ID            string
-	ServerAddress string
-	LoopAmount    int
-	LoopPeriod    time.Duration
+	ID               string
+	ServerAddress    string
+	LoopAmount       int
+	LoopPeriod       time.Duration
+	FilePath         string
+	BatchSize        int
+	BatchLimitAmount int
 }
 
 // Client Entity that encapsulates how
@@ -57,14 +62,8 @@ func (c *Client) createClientSocket(ctx context.Context) error {
 
 // StartClientLoop Send messages to the client until some time threshold is met
 func (c *Client) StartClientLoop(ctx context.Context) {
-	select {
-	case <-ctx.Done():
-		log.Infof("closing client connection due to received signal, client_id: %v", c.config.ID)
-		return
-	default:
-	}
-
 	if err := c.createClientSocket(ctx); err != nil {
+		log.Infof("failed to create client socked")
 		return
 	}
 
@@ -74,32 +73,82 @@ func (c *Client) StartClientLoop(ctx context.Context) {
 		}
 	}()
 
-	bet, err := GetBetFromEnv()
-	if err != nil {
-		log.Errorf("action: building bet message | result: fail | client_id: %v | error: %w",
-			c.config.ID,
-			err,
-		)
+	log.Infof("socket established")
 
+	file, err := os.Open(c.config.FilePath)
+	if err != nil {
+		log.Infof("failed to open file: %w", err)
 		return
 	}
+	defer file.Close()
 
-	bet.ClientID = c.config.ID
+	log.Infof("file opened")
 
-	err = c.sendMessage("bet", bet)
-	if err != nil {
-		return
+	reader := csv.NewReader(file)
+
+	log.Infof("reader created")
+
+	var currentBatch []*Bet
+	var currentBetIDs []string
+	var batchSizeBytes int
+
+	for {
+		select {
+		case <-ctx.Done():
+			log.Infof("closing client connection due to received signal, client_id: %v", c.config.ID)
+			return
+		default:
+		}
+
+		record, err := reader.Read()
+		if err != nil {
+			log.Infof("failed trying to read file: %w", err)
+			break
+		}
+
+		log.Infof("record read: %s", record)
+
+		bet := &Bet{
+			ClientID:       c.config.ID,
+			FirstName:      record[0],
+			LastName:       record[1],
+			DocumentNumber: record[2],
+			BirthDate:      record[3],
+			Number:         record[4],
+		}
+
+		betSize, _ := json.Marshal(bet)
+
+		log.Infof("current-batch len: %d, current-size-length: %d", len(currentBatch), batchSizeBytes+len(betSize))
+		log.Infof("configurations: batch-size: %d, batch-limit-amount: %d", c.config.BatchSize, c.config.BatchLimitAmount)
+
+		if len(currentBatch) >= c.config.BatchSize || batchSizeBytes+len(betSize) > c.config.BatchLimitAmount {
+			err := c.sendMessage("bets", currentBatch)
+			if err != nil {
+				log.Infof("action: apuestas_enviadas | result: fail | error: %w", err)
+			} else {
+				log.Infof("action: apuestas_enviadas | result: success | dni: %v | numeros: %v", bet.DocumentNumber, strings.Join(currentBetIDs, "-"))
+			}
+
+			currentBatch = []*Bet{}
+			currentBetIDs = []string{}
+			batchSizeBytes = 0
+		}
+
+		log.Infof("adding bet: %v", bet)
+
+		currentBatch = append(currentBatch, bet)
+		currentBetIDs = append(currentBetIDs, bet.Number)
+		batchSizeBytes += len(betSize)
 	}
 
-	response, err := c.receiveMessage()
-	if err != nil {
-		return
-	}
-
-	expectedACK := fmt.Sprintf(BetACK, bet.ClientID)
-
-	if expectedACK == response {
-		log.Infof("action: apuesta_enviada | result: success | dni: %v | numero: %v", bet.DocumentNumber, bet.Number)
+	if len(currentBatch) > 0 {
+		err := c.sendMessage("bets", currentBatch)
+		if err != nil {
+			log.Infof("action: apuestas_enviadas | result: fail | error: %w", err)
+		} else {
+			log.Infof("action: apuestas_enviadas | result: success | dni: %v | numeros: %v", currentBatch[0].DocumentNumber, strings.Join(currentBetIDs, "-"))
+		}
 	}
 }
 
@@ -149,3 +198,7 @@ func (c *Client) receiveMessage() (string, error) {
 
 	return msg, nil
 }
+
+// func (c *Client) GetBets() []*Bet {
+// 	// file, err := os.Open()
+// }

@@ -67,12 +67,14 @@ class Server:
             message = json.loads(msg)
             msg_type = message.get("type")
             data = message.get("data")
-            bet = Bet.from_json(data)  
-            
-            if msg_type == "bet":
-                store_bets([bet])
-                logging.info(f'action: apuesta_almacenada | result: success | dni: {bet.document} | numero: {bet.number}')
-                
+
+            bets = [Bet.from_json(bet_data) for bet_data in data]
+
+            if msg_type == "bets":
+                store_bets([bets])
+                logging.info(f'action: apuesta_recibida | result: success | cantidad: ${len(bets)}')
+
+                """ TODO agregar log de error """
                 ack_response = utils.ACK_MESSAGE.format(bet.agency)
 
                 client_sock.sendall(ack_response.encode('utf-8'))
