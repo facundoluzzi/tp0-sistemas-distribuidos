@@ -4,6 +4,7 @@ import socket
 import logging
 import signal
 import sys
+import errno
 
 from common.utils import Bet, store_bets
 from common import utils
@@ -49,40 +50,41 @@ class Server:
         client socket will also be closed
         """
         try:
-            msg = b''
             while True:
-                chunk = client_sock.recv(1024)
-                if not chunk:
+                msg = b''
+                while True:
+                    chunk = client_sock.recv(1024)
+                    if not chunk:
+                        break
+
+                    msg += chunk
+                    if b'\n' in chunk:
+                        break
+                    
+                msg = msg.rstrip().decode()
+                
+                # addr = client_sock.getpeername()
+                # logging.info(f'action: receive_message | result: success | ip: {addr[0]} | msg: {msg}')
+                message = json.loads(msg)
+                msg_type = message.get("type")
+                
+                if msg_type == "bets":
+                    data = message.get("data")
+                    
+                    bets = [Bet.from_json(bet_data) for bet_data in data]
+
+                    store_bets(bets)
+                    logging.info(f'action: apuesta_recibida | result: success | cantidad: ${len(bets)}')
+
+                    ack_response = utils.ACK_MESSAGE.format("-".join(str(bet.number) for bet in bets))
+                    client_sock.sendall("{}\n".format(ack_response).encode('utf-8'))
+                elif msg_type == "delivery-ended":
                     break
-
-                msg += chunk
-                if b'\n' in chunk:
-                    break
-
-            msg = msg.rstrip().decode()
-            
-            addr = client_sock.getpeername()
-            logging.info(f'action: receive_message | result: success | ip: {addr[0]} | msg: {msg}')
-
-            message = json.loads(msg)
-            msg_type = message.get("type")
-            data = message.get("data")
-
-            bets = [Bet.from_json(bet_data) for bet_data in data]
-
-            if msg_type == "bets":
-                store_bets([bets])
-                logging.info(f'action: apuesta_recibida | result: success | cantidad: ${len(bets)}')
-
-                """ TODO agregar log de error """
-                ack_response = utils.ACK_MESSAGE.format(bet.agency)
-
-                client_sock.sendall(ack_response.encode('utf-8'))
         except OSError as e:
             logging.error("action: receive_message | result: fail | error: {e}")
         finally:
-            client_sock.close()
             self.client_connections.remove(client_sock)
+            client_sock.close()
             
     def __accept_new_connection(self):
         """

@@ -42,6 +42,7 @@ for ((i=1; i<=CLIENTS_AMOUNT; i++)); do
       - NUMERO=757$i
     volumes:
       - ./client/config.yaml:/app/config.yaml
+      - ./.data/agency-$i.csv:/app/agency.csv
     networks:
       - testing_net
     depends_on:
