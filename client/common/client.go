@@ -6,6 +6,7 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"os"
@@ -63,7 +64,6 @@ func (c *Client) createClientSocket(ctx context.Context) error {
 // StartClientLoop Send messages to the client until some time threshold is met
 func (c *Client) StartClientLoop(ctx context.Context) {
 	if err := c.createClientSocket(ctx); err != nil {
-		log.Infof("failed to create client socked")
 		return
 	}
 
@@ -73,20 +73,14 @@ func (c *Client) StartClientLoop(ctx context.Context) {
 		}
 	}()
 
-	log.Infof("socket established")
-
 	file, err := os.Open(c.config.FilePath)
 	if err != nil {
-		log.Infof("failed to open file: %w", err)
 		return
 	}
+
 	defer file.Close()
 
-	log.Infof("file opened")
-
 	reader := csv.NewReader(file)
-
-	log.Infof("reader created")
 
 	var currentBatch []*Bet
 	var currentBetIDs []string
@@ -102,11 +96,13 @@ func (c *Client) StartClientLoop(ctx context.Context) {
 
 		record, err := reader.Read()
 		if err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+
 			log.Infof("failed trying to read file: %w", err)
 			break
 		}
-
-		log.Infof("record read: %s", record)
 
 		bet := &Bet{
 			ClientID:       c.config.ID,
@@ -119,23 +115,30 @@ func (c *Client) StartClientLoop(ctx context.Context) {
 
 		betSize, _ := json.Marshal(bet)
 
-		log.Infof("current-batch len: %d, current-size-length: %d", len(currentBatch), batchSizeBytes+len(betSize))
-		log.Infof("configurations: batch-size: %d, batch-limit-amount: %d", c.config.BatchSize, c.config.BatchLimitAmount)
-
 		if len(currentBatch) >= c.config.BatchSize || batchSizeBytes+len(betSize) > c.config.BatchLimitAmount {
+			betNumbersFormatted := strings.Join(currentBetIDs, "-")
+
 			err := c.sendMessage("bets", currentBatch)
 			if err != nil {
 				log.Infof("action: apuestas_enviadas | result: fail | error: %w", err)
-			} else {
-				log.Infof("action: apuestas_enviadas | result: success | dni: %v | numeros: %v", bet.DocumentNumber, strings.Join(currentBetIDs, "-"))
+				return
+			}
+
+			response, err := c.receiveMessage()
+			if err != nil {
+				return
+			}
+
+			expectedACK := fmt.Sprintf(BetsACK, betNumbersFormatted)
+
+			if expectedACK == strings.TrimSpace(response) {
+				log.Infof("action: apuestas_enviadas | result: success | numeros: %v", betNumbersFormatted)
 			}
 
 			currentBatch = []*Bet{}
 			currentBetIDs = []string{}
 			batchSizeBytes = 0
 		}
-
-		log.Infof("adding bet: %v", bet)
 
 		currentBatch = append(currentBatch, bet)
 		currentBetIDs = append(currentBetIDs, bet.Number)
@@ -147,15 +150,20 @@ func (c *Client) StartClientLoop(ctx context.Context) {
 		if err != nil {
 			log.Infof("action: apuestas_enviadas | result: fail | error: %w", err)
 		} else {
-			log.Infof("action: apuestas_enviadas | result: success | dni: %v | numeros: %v", currentBatch[0].DocumentNumber, strings.Join(currentBetIDs, "-"))
+			log.Infof("action: apuestas_enviadas | result: success | numeros: %v", strings.Join(currentBetIDs, "-"))
 		}
 	}
+
+	_ = c.sendMessage("delivery-ended", nil)
 }
 
 func (c *Client) sendMessage(messageType string, data interface{}) error {
 	msg := Message{
 		Type: messageType,
-		Data: data,
+	}
+
+	if data != nil {
+		msg.Data = data
 	}
 
 	bytes, err := json.Marshal(msg)

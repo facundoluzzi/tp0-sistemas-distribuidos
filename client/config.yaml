@@ -7,7 +7,7 @@ loop:
 log:
   level: "INFO"
 file:
-  path: "./agency.csv"
+  path: "./app/agency.csv"
 batch:
-  maxSize: 2
+  maxSize: 1000
   maxAmount: 8192

@@ -1,5 +1,5 @@
 package common
 
-const BetACK = "BET_ACK:%v"
+const BetsACK = "BETS_ACK:%s"
 
 const DefaultBatchLimitAmount = 8192
