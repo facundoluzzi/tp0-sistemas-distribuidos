@@ -3,11 +3,12 @@ package common
 import (
 	"bufio"
 	"context"
-	"encoding/json"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/op/go-logging"
@@ -103,36 +104,38 @@ func (c *Client) StartClientLoop(ctx context.Context) {
 	}
 }
 
-func (c *Client) sendMessage(messageType string, data interface{}) error {
-	msg := Message{
-		Type: messageType,
-		Data: data,
-	}
+func (c *Client) sendMessage(messageType string, bet *Bet) error {
+	var sb strings.Builder
 
-	bytes, err := json.Marshal(msg)
-	if err != nil {
-		log.Errorf("action: send_message | result: fail | client_id: %v | error: %w",
-			c.config.ID,
-			err,
-		)
+	sb.WriteString(fmt.Sprintf(
+		"%s|%s|%s|%s|%s|%s\n",
+		bet.ClientID, bet.FirstName, bet.LastName, bet.DocumentNumber, bet.BirthDate, bet.Number,
+	))
 
-		return err
-	}
+	message := fmt.Sprintf("%s\n%s", messageType, sb.String())
+	messageBytes := []byte(message)
+
+	msgLength := uint16(len(messageBytes))
+	lengthBytes := make([]byte, 2)
+	binary.BigEndian.PutUint16(lengthBytes, msgLength)
 
 	writer := bufio.NewWriter(c.conn)
-	writer.Write(append(bytes, '\n'))
+	_, err := writer.Write(append(lengthBytes, messageBytes...))
+	if err != nil {
+		log.Errorf("action: send_message | result: fail | client_id: %v | error: %v",
+			c.config.ID, err)
+		return err
+	}
 
 	// Flush avoids short write
 	err = writer.Flush()
 	if err != nil {
-		log.Errorf("action: send_message | result: fail | client_id: %v | error: %w",
-			c.config.ID,
-			err,
-		)
-
+		log.Errorf("action: send_message | result: fail | client_id: %v | error: %v",
+			c.config.ID, err)
 		return err
 	}
 
+	log.Infof("action: send_message | message_type: %s | result: success", messageType)
 	return nil
 }
 

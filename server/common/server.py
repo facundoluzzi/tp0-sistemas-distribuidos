@@ -3,6 +3,7 @@ import os
 import socket
 import logging
 import signal
+import struct
 import sys
 
 from common.utils import Bet, store_bets
@@ -49,28 +50,32 @@ class Server:
         client socket will also be closed
         """
         try:
-            msg = b''
-            while True:
-                chunk = client_sock.recv(1024)
-                if not chunk:
-                    break
+            length_data = client_sock.recv(2)
+            if not length_data:
+                return  
 
-                msg += chunk
-                if b'\n' in chunk:
-                    break
+            msg_length = struct.unpack("!H", length_data)[0]
+            msg = client_sock.recv(msg_length).decode().strip()
 
-            msg = msg.rstrip().decode()
+            if not msg:
+                return  
+            
+            lines = msg.split("\n")
+            msg_type = lines[0]
             
             addr = client_sock.getpeername()
             logging.info(f'action: receive_message | result: success | ip: {addr[0]} | msg: {msg}')
 
-            message = json.loads(msg)
-            msg_type = message.get("type")
-            data = message.get("data")
-            bet = Bet.from_json(data)  
-            
             if msg_type == "bet":
+                parts = lines[1].split("|")
+                if len(parts) != 6:
+                    logging.warning(f"action: parse_bet | result: fail | reason: invalid_format | data: {line}")
+                    return  
+
+                bet = Bet(*parts)
+                
                 store_bets([bet])
+                
                 logging.info(f'action: apuesta_almacenada | result: success | dni: {bet.document} | numero: {bet.number}')
                 
                 ack_response = utils.ACK_MESSAGE.format(bet.agency)
