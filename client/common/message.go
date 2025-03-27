@@ -1,6 +1,7 @@
 package common
 
 type Message struct {
-	Type string      `json:"type"`
-	Data interface{} `json:"data,omitempty"`
+	ClientID string      `json:"client_id"`
+	Type     string      `json:"type"`
+	Data     interface{} `json:"data,omitempty"`
 }

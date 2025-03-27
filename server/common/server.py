@@ -3,10 +3,11 @@ import os
 import socket
 import logging
 import signal
+import struct
 import sys
-import errno
+import traceback
 
-from common.utils import Bet, store_bets
+from common.utils import Bet, has_won, store_bets, load_bets
 from common import utils
 
 class Server:
@@ -16,7 +17,9 @@ class Server:
         self._server_socket.bind(('', port))
         self._server_socket.listen(listen_backlog)
         self.client_connections = []
+        self.clients_finished = set()
         self.is_running = True
+        
         self.max_connections = int(os.environ.get("MAX_CONNECTIONS", 5))
         
         signal.signal(signal.SIGTERM, self.graceful_shutdown)
@@ -51,34 +54,54 @@ class Server:
         """
         try:
             while True:
-                msg = b''
-                while True:
-                    chunk = client_sock.recv(1024)
-                    if not chunk:
-                        break
+                length_data = client_sock.recv(2)
+                if not length_data:
+                    break  
 
-                    msg += chunk
-                    if b'\n' in chunk:
-                        break
-                    
-                msg = msg.rstrip().decode()
+                msg_length = struct.unpack("!H", length_data)[0]
+                msg = client_sock.recv(msg_length).decode().strip()
+
+                if not msg:
+                    continue  
                 
-                # addr = client_sock.getpeername()
-                # logging.info(f'action: receive_message | result: success | ip: {addr[0]} | msg: {msg}')
-                message = json.loads(msg)
-                msg_type = message.get("type")
+                lines = msg.split("\n")
+                msg_type = lines[0]
                 
                 if msg_type == "bets":
-                    data = message.get("data")
-                    
-                    bets = [Bet.from_json(bet_data) for bet_data in data]
+                    bets = []
+                    for line in lines[1:]:
+                        parts = line.split("|")
+                        if len(parts) != 6:
+                            logging.warning(f"action: parse_bet | result: fail | reason: invalid_format | data: {line}")
+                            continue  
+
+                        bet = Bet(*parts)
+                        bets.append(bet)
+
+                    logging.info(f"action: parse_bets | result: success | count: {len(bets)}")
 
                     store_bets(bets)
+
                     logging.info(f'action: apuesta_recibida | result: success | cantidad: ${len(bets)}')
 
                     ack_response = utils.ACK_MESSAGE.format("-".join(str(bet.number) for bet in bets))
                     client_sock.sendall("{}\n".format(ack_response).encode('utf-8'))
                 elif msg_type == "delivery-ended":
+                    self.clients_finished.add(lines[1])
+                    logging.info(f'Cantidad de clientes que terminaron: {len(self.clients_finished)}')
+                    if len(self.client_connections) == utils.MAX_CONNECTIONS:
+                        logging.info("action: sorteo | result: success")
+                    continue
+                elif msg_type == "ask-winners":
+                    if len(self.clients_finished) == utils.MAX_CONNECTIONS:
+                        bets = load_bets()
+                        winners = [bet for bet in bets if has_won(bet)]
+                        filtered_winners = [bet for bet in winners if int(bet.agency) == int(lines[1])]
+                        count_winners = len(filtered_winners)
+                        client_sock.sendall("{}\n".format(count_winners).encode('utf-8'))
+                    else:
+                        client_sock.sendall("{}\n".format(utils.PENDING_RAFFLE_MESSAGE).encode('utf-8'))
+                        
                     break
         except OSError as e:
             logging.error("action: receive_message | result: fail | error: {e}")

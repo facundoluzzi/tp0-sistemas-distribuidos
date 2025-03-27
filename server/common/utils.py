@@ -6,7 +6,9 @@ STORAGE_FILEPATH = "./bets.csv"
 """ Simulated winner number in the lottery contest. """
 LOTTERY_WINNER_NUMBER = 7574
 
+MAX_CONNECTIONS = 5
 ACK_MESSAGE = "BETS_ACK:{}"
+PENDING_RAFFLE_MESSAGE = "PENDING_RAFFLE"
 
 """ A lottery bet registry. """
 class Bet:

@@ -35,7 +35,6 @@ func InitConfig() (*viper.Viper, error) {
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
 	// Add env variables supported
-	v.BindEnv("id")
 	v.BindEnv("server", "address")
 	v.BindEnv("loop", "period")
 	v.BindEnv("loop", "amount")
@@ -122,7 +121,7 @@ func main() {
 
 	clientConfig := common.ClientConfig{
 		ServerAddress:    v.GetString("server.address"),
-		ID:               v.GetString("id"),
+		ID:               os.Getenv("CLI_ID"),
 		LoopAmount:       v.GetInt("loop.amount"),
 		LoopPeriod:       v.GetDuration("loop.period"),
 		FilePath:         v.GetString("file.path"),
