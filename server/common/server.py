@@ -3,6 +3,7 @@ import os
 import socket
 import logging
 import signal
+import struct
 import sys
 import errno
 
@@ -51,30 +52,32 @@ class Server:
         """
         try:
             while True:
-                msg = b''
-                while True:
-                    chunk = client_sock.recv(1024)
-                    if not chunk:
-                        break
+                length_data = client_sock.recv(2)
+                if not length_data:
+                    break  
 
-                    msg += chunk
-                    if b'\n' in chunk:
-                        break
-                    
-                msg = msg.rstrip().decode()
+                msg_length = struct.unpack("!H", length_data)[0]
+                msg = client_sock.recv(msg_length).decode().strip()
+
+                if not msg:
+                    continue  
                 
-                # addr = client_sock.getpeername()
-                # logging.info(f'action: receive_message | result: success | ip: {addr[0]} | msg: {msg}')
-                message = json.loads(msg)
-                msg_type = message.get("type")
+                lines = msg.split("\n")
+                msg_type = lines[0]
                 
                 if msg_type == "bets":
-                    data = message.get("data")
-                    
-                    bets = [Bet.from_json(bet_data) for bet_data in data]
+                    bets = []
+                    for line in lines[1:]:
+                        parts = line.split("|")
+                        if len(parts) != 6:
+                            continue  
+
+                        bet = Bet(*parts)
+                        bets.append(bet)
 
                     store_bets(bets)
-                    logging.info(f'action: apuesta_recibida | result: success | cantidad: ${len(bets)}')
+                    
+                    logging.info(f'action: apuesta_recibida | result: success | cantidad: {len(bets)}')
 
                     ack_response = utils.ACK_MESSAGE.format("-".join(str(bet.number) for bet in bets))
                     client_sock.sendall("{}\n".format(ack_response).encode('utf-8'))

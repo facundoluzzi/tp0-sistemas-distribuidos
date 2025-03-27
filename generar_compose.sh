@@ -6,7 +6,16 @@ fi
 OUTPUT_FILE=$1
 CLIENTS_AMOUNT=$2
 
-echo $OUTPUT_FILE $CLIENTS_AMOUNT 
+DATASET_ZIP="./.data/dataset.zip"
+DATASET_DIR="./.data"
+
+if [ -f "$DATASET_ZIP" ]; then
+    echo "Extracting dataset..."
+    unzip -o "$DATASET_ZIP" -d "$DATASET_DIR"
+else
+    echo "Dataset file '$DATASET_ZIP' not found"
+    exit 1
+fi
 
 cat > "$OUTPUT_FILE" <<EOL
 name: tp0
