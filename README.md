@@ -144,9 +144,23 @@ Se deberá implementar un módulo de comunicación entre el cliente y el servido
 * Correcto empleo de sockets, incluyendo manejo de errores y evitando los fenómenos conocidos como [_short read y short write_](https://cs61.seas.harvard.edu/site/2018/FileDescriptors/).
 
 #### Protocolo de comunicacion
-La comunicacion entre los clientes y el servidor se basa con mensajes serializados en formato JSON, siguiendo un esquema que permite la transmision de diferentes tipos de mensajes.
+La comunicacion entre los clientes y el servidor se basa con mensajes que permiten la transmision de diferentes tipos de mensajes. Se envian 2 bytes conteniendo la longitud del mensaje completo, 
 
-Al recibir un mensaje, el servidor dependiendo el tipo elige como manejarlo. Una vez procesado, se devuelve el ACK correspondiente, junto al numero de apuesta.
+El protocolo de `SendMessage` del lado del cliente utiliza sockets TCP para conectarse con el servidor, y envia diferentes tipos de mensajes a partir de un `messageType`. El mensaje construido tiene el siguiente formato:
+
+La cantidad de lineas depende de las apuestas que se envien.
+```
+longitud_mensaje message_type
+client_id|first_name|last_name|document_number|birth_date|number
+client_id|first_name|last_name|document_number|birth_date|number
+client_id|first_name|last_name|document_number|birth_date|number
+client_id|first_name|last_name|document_number|birth_date|number
+etc etc
+```
+
+El servidor recibe el mensaje, lee los dos primeros bytes, y luego la cantidad restante del mensaje. A partir del message_type, lo procesa de una u otra forma. 
+
+El servidor envia ACK al cliente cada vez que recibe apuestas, con el numero correspondiente de las mismas. 
 
 ##### Estructura del mensaje
 
@@ -179,6 +193,9 @@ La cantidad máxima de apuestas dentro de cada _batch_ debe ser configurable des
 
 Por su parte, el servidor deberá responder con éxito solamente si todas las apuestas del _batch_ fueron procesadas correctamente.
 
+#### Especificaciones N°6:
+El cliente envia batchs de apuestas siguiendo el protocolo mencionado anteriormente, hasta que finaliza con un mensaje de tipo `delivery-ended`. En ese momento, finaliza su ejecucion. Para probarlo, alcanza con hacer `make up`, y ver los logs de cada contenedor.
+
 ### Ejercicio N°7:
 
 Modificar los clientes para que notifiquen al servidor al finalizar con el envío de todas las apuestas y así proceder con el sorteo.
@@ -192,12 +209,20 @@ Las funciones `load_bets(...)` y `has_won(...)` son provistas por la cátedra y 
 
 No es correcto realizar un broadcast de todos los ganadores hacia todas las agencias, se espera que se informen los DNIs ganadores que correspondan a cada una de ellas.
 
+#### Especificaciones N°7:
+
+El cliente envia batchs siguiendo lo propuesto anteriormente, y al finalizar envia un mensaje `delivery-ended`, donde finaliza su ejecucion. Luego, instantaneamente, itera al infinito (con periodos de espera de 500ms) consultando al servidor por la cantidad de apuestas ganadoras. Una vez que reciba la cantidad, loggea, y finaliza su ejecucion. Entre cada iteracion, la conexion con el servidor es cerrada, y abierta nuevamente. Se puede probar de la misma forma que ejercicios anteriores, verificando los logs. 
+
 ## Parte 3: Repaso de Concurrencia
 En este ejercicio es importante considerar los mecanismos de sincronización a utilizar para el correcto funcionamiento de la persistencia.
 
 ### Ejercicio N°8:
 
 Modificar el servidor para que permita aceptar conexiones y procesar mensajes en paralelo. En caso de que el alumno implemente el servidor en Python utilizando _multithreading_,  deberán tenerse en cuenta las [limitaciones propias del lenguaje](https://wiki.python.org/moin/GlobalInterpreterLock).
+
+#### Especificaciones N°8:
+Se utilizaron locks para las variables de acceso compartido entre los diferentes threads. Cada conexion se procesa en paralelo.
+El servidor maneja multiples conexiones utilizando umlti-threading para procesarlas de manera concurrente. Cada vez que un nuevo cliente se conecta, se crea un nuevo thread, que ejecuta el flujo de procesamiento principal del servidor. Para las variables de acceso compartido (clients_connections, clients_finished), se utiliza un lock para asegurar la consistencia y race conditions.
 
 ## Condiciones de Entrega
 Se espera que los alumnos realicen un _fork_ del presente repositorio para el desarrollo de los ejercicios y que aprovechen el esqueleto provisto tanto (o tan poco) como consideren necesario.
