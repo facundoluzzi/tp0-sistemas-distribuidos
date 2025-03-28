@@ -82,7 +82,7 @@ class Server:
 
                     store_bets(bets)
 
-                    logging.info(f'action: apuesta_recibida | result: success | cantidad: ${len(bets)}')
+                    logging.info(f'action: apuesta_recibida | result: success | cantidad: {len(bets)}')
 
                     ack_response = utils.ACK_MESSAGE.format("-".join(str(bet.number) for bet in bets))
                     client_sock.sendall("{}\n".format(ack_response).encode('utf-8'))
