@@ -93,9 +93,14 @@ python3 mi-generador.py $1 $2
 
 En el archivo de Docker Compose de salida se pueden definir volúmenes, variables de entorno y redes con libertad, pero recordar actualizar este script cuando se modifiquen tales definiciones en los sucesivos ejercicios.
 
+#### Instrucciones de uso ejercicio N°1:
+Estando en el root del proyecto, se puede utilizar el script bash `generar_compose.sh {OUTPUT_FILE} {CLIENTS_AMOUNT}` para crear el docker-compose con la cantidad de clientes deseada. Por ejemplo, `generar_compose.sh docker-compose-test.yaml 2`, creará el archivo `docker-compose-test.yaml` con 2 clientes.
+
 ### Ejercicio N°2:
 Modificar el cliente y el servidor para lograr que realizar cambios en el archivo de configuración no requiera reconstruír las imágenes de Docker para que los mismos sean efectivos. La configuración a través del archivo correspondiente (`config.ini` y `config.yaml`, dependiendo de la aplicación) debe ser inyectada en el container y persistida por fuera de la imagen (hint: `docker volumes`).
 
+#### Instrucciones de uso ejercicio N°2:
+Ejecutando comandos dentro del contenedor se puede verificar que la configuración se actualiza correctamente, una vez se vuelvan a levantar los contenedores luego de las modificaciones. Por ejemplo, modificando el puerto del servidor.
 
 ### Ejercicio N°3:
 Crear un script de bash `validar-echo-server.sh` que permita verificar el correcto funcionamiento del servidor utilizando el comando `netcat` para interactuar con el mismo. Dado que el servidor es un echo server, se debe enviar un mensaje al servidor y esperar recibir el mismo mensaje enviado.
@@ -104,9 +109,14 @@ En caso de que la validación sea exitosa imprimir: `action: test_echo_server | 
 
 El script deberá ubicarse en la raíz del proyecto. Netcat no debe ser instalado en la máquina _host_ y no se pueden exponer puertos del servidor para realizar la comunicación (hint: `docker network`). `
 
+#### Instrucciones de uso ejercicio N°3:
+Para testear este punto, alcanza con hacer un `make up` para levantar el servidor, y ejecutar el script.
 
 ### Ejercicio N°4:
 Modificar servidor y cliente para que ambos sistemas terminen de forma _graceful_ al recibir la signal SIGTERM. Terminar la aplicación de forma _graceful_ implica que todos los _file descriptors_ (entre los que se encuentran archivos, sockets, threads y procesos) deben cerrarse correctamente antes que el thread de la aplicación principal muera. Loguear mensajes en el cierre de cada recurso (hint: Verificar que hace el flag `-t` utilizado en el comando `docker compose down`).
+
+#### Instrucciones de uso ejercicio N°4:
+Para probar el correcto funcionamiento del Graceful Shutdown, podemos levantar tanto el cliente como el servidor con el comando `make up`, y ver los logs con `docker ps` && `docker logs -f {contenedor_cliente OR contenedor_servidor}` && `make down`. Con esto, detendremos ambos procesos, y podremos ver que tanto el cliente como el servidor terminan de forma graceful.
 
 ## Parte 2: Repaso de Comunicaciones
 
@@ -133,6 +143,42 @@ Se deberá implementar un módulo de comunicación entre el cliente y el servido
 * Correcta separación de responsabilidades entre modelo de dominio y capa de comunicación.
 * Correcto empleo de sockets, incluyendo manejo de errores y evitando los fenómenos conocidos como [_short read y short write_](https://cs61.seas.harvard.edu/site/2018/FileDescriptors/).
 
+#### Protocolo de comunicacion
+La comunicacion entre los clientes y el servidor se basa con mensajes que permiten la transmision de diferentes tipos de mensajes. Se envian 2 bytes conteniendo la longitud del mensaje completo, 
+
+El protocolo de `SendMessage` del lado del cliente utiliza sockets TCP para conectarse con el servidor, y envia diferentes tipos de mensajes a partir de un `messageType`. El mensaje construido tiene el siguiente formato:
+
+La cantidad de lineas depende de las apuestas que se envien.
+```
+longitud_mensaje message_type
+client_id|first_name|last_name|document_number|birth_date|number
+client_id|first_name|last_name|document_number|birth_date|number
+client_id|first_name|last_name|document_number|birth_date|number
+client_id|first_name|last_name|document_number|birth_date|number
+etc etc
+```
+
+El servidor recibe el mensaje, lee los dos primeros bytes, y luego la cantidad restante del mensaje. A partir del message_type, lo procesa de una u otra forma. 
+
+El servidor envia ACK al cliente cada vez que recibe apuestas, con el numero correspondiente de las mismas. 
+
+##### Estructura del mensaje
+
+`{
+  "type": "bet",
+  "data": {
+    "client_id": "1",
+    "first_name": "Santiago Lionel",
+    "last_name": "Lorca",
+    "document_number": "30904465",
+    "birth_date": "1999-03-17",
+    "number": "7574"
+  }
+}`
+
+
+#### Instrucciones de uso ejercicio N°5:
+Ejecutando el comando `make up`, se pueden visualizar los logs del lado de los clientes, como del servidor.
 
 ### Ejercicio N°6:
 Modificar los clientes para que envíen varias apuestas a la vez (modalidad conocida como procesamiento por _chunks_ o _batchs_). 
@@ -147,6 +193,9 @@ La cantidad máxima de apuestas dentro de cada _batch_ debe ser configurable des
 
 Por su parte, el servidor deberá responder con éxito solamente si todas las apuestas del _batch_ fueron procesadas correctamente.
 
+#### Especificaciones N°6:
+El cliente envia batchs de apuestas siguiendo el protocolo mencionado anteriormente, hasta que finaliza con un mensaje de tipo `delivery-ended`. En ese momento, finaliza su ejecucion. Para probarlo, alcanza con hacer `make up`, y ver los logs de cada contenedor.
+
 ### Ejercicio N°7:
 
 Modificar los clientes para que notifiquen al servidor al finalizar con el envío de todas las apuestas y así proceder con el sorteo.
@@ -160,12 +209,20 @@ Las funciones `load_bets(...)` y `has_won(...)` son provistas por la cátedra y 
 
 No es correcto realizar un broadcast de todos los ganadores hacia todas las agencias, se espera que se informen los DNIs ganadores que correspondan a cada una de ellas.
 
+#### Especificaciones N°7:
+
+El cliente envia batchs siguiendo lo propuesto anteriormente, y al finalizar envia un mensaje `delivery-ended`, donde finaliza su ejecucion. Luego, instantaneamente, itera al infinito (con periodos de espera de 500ms) consultando al servidor por la cantidad de apuestas ganadoras. Una vez que reciba la cantidad, loggea, y finaliza su ejecucion. Entre cada iteracion, la conexion con el servidor es cerrada, y abierta nuevamente. Se puede probar de la misma forma que ejercicios anteriores, verificando los logs. 
+
 ## Parte 3: Repaso de Concurrencia
 En este ejercicio es importante considerar los mecanismos de sincronización a utilizar para el correcto funcionamiento de la persistencia.
 
 ### Ejercicio N°8:
 
 Modificar el servidor para que permita aceptar conexiones y procesar mensajes en paralelo. En caso de que el alumno implemente el servidor en Python utilizando _multithreading_,  deberán tenerse en cuenta las [limitaciones propias del lenguaje](https://wiki.python.org/moin/GlobalInterpreterLock).
+
+#### Especificaciones N°8:
+Se utilizaron locks para las variables de acceso compartido entre los diferentes threads. Cada conexion se procesa en paralelo.
+El servidor maneja multiples conexiones utilizando umlti-threading para procesarlas de manera concurrente. Cada vez que un nuevo cliente se conecta, se crea un nuevo thread, que ejecuta el flujo de procesamiento principal del servidor. Para las variables de acceso compartido (clients_connections, clients_finished), se utiliza un lock para asegurar la consistencia y race conditions.
 
 ## Condiciones de Entrega
 Se espera que los alumnos realicen un _fork_ del presente repositorio para el desarrollo de los ejercicios y que aprovechen el esqueleto provisto tanto (o tan poco) como consideren necesario.
