@@ -213,7 +213,7 @@ func (c *Client) sendMessage(clientID string, messageType string, data []*Bet) e
 		return err
 	}
 
-	// log.Infof("action: send_message | message_type: %s | result: success", messageType)
+	log.Infof("action: send_message | message_type: %s | result: success", messageType)
 	return nil
 
 }
