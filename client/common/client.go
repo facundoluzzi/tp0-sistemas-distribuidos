@@ -113,7 +113,7 @@ func (c *Client) StartClientLoop(ctx context.Context) {
 		betSize, _ := json.Marshal(bet)
 
 		if len(currentBatch) >= c.config.BatchSize || batchSizeBytes+len(betSize) > c.config.BatchLimitAmount {
-			betNumbersFormatted := strings.Join(currentBetIDs, "-")
+			// betNumbersFormatted := strings.Join(currentBetIDs, "-")
 
 			err := c.sendMessage(c.config.ID, "bets", currentBatch)
 			if err != nil {
@@ -121,16 +121,16 @@ func (c *Client) StartClientLoop(ctx context.Context) {
 				return
 			}
 
-			response, err := c.receiveMessage()
+			_, err = c.receiveMessage()
 			if err != nil {
 				return
 			}
 
-			expectedACK := fmt.Sprintf(BetsACK, betNumbersFormatted)
+			// expectedACK := fmt.Sprintf(BetsACK, betNumbersFormatted)
 
-			if expectedACK == strings.TrimSpace(response) {
-				log.Infof("action: apuestas_enviadas | result: success | numeros: %v", betNumbersFormatted)
-			}
+			// if expectedACK == strings.TrimSpace(response) {
+			// 	log.Infof("action: apuestas_enviadas | result: success | numeros: %v", betNumbersFormatted)
+			// }
 
 			currentBatch = []*Bet{}
 			currentBetIDs = []string{}
@@ -148,18 +148,18 @@ func (c *Client) StartClientLoop(ctx context.Context) {
 			log.Infof("action: apuestas_enviadas | result: fail | error: %w", err)
 		}
 
-		response, err := c.receiveMessage()
+		_, err = c.receiveMessage()
 		if err != nil {
 			return
 		}
 
-		betNumbersFormatted := strings.Join(currentBetIDs, "-")
+		// betNumbersFormatted := strings.Join(currentBetIDs, "-")
 
-		expectedACK := fmt.Sprintf(BetsACK, betNumbersFormatted)
+		// expectedACK := fmt.Sprintf(BetsACK, betNumbersFormatted)
 
-		if expectedACK == strings.TrimSpace(response) {
-			log.Infof("action: apuestas_enviadas | result: success | numeros: %v", betNumbersFormatted)
-		}
+		// if expectedACK == strings.TrimSpace(response) {
+		// 	log.Infof("action: apuestas_enviadas | result: success | numeros: %v", betNumbersFormatted)
+		// }
 	}
 
 	err = c.sendMessage(c.config.ID, "delivery-ended", nil)
@@ -246,7 +246,7 @@ func (c *Client) sendMessage(clientID string, messageType string, data []*Bet) e
 		return err
 	}
 
-	log.Infof("action: send_message | message_type: %s | result: success", messageType)
+	// log.Infof("action: send_message | message_type: %s | result: success", messageType)
 	return nil
 }
 

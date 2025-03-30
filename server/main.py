@@ -43,8 +43,8 @@ def main():
 
     # Log config parameters at the beginning of the program to verify the configuration
     # of the component
-    logging.debug(f"action: config | result: success | port: {port} | "
-                  f"listen_backlog: {listen_backlog} | logging_level: {logging_level}")
+    # logging.debug(f"action: config | result: success | port: {port} | "
+                #   f"listen_backlog: {listen_backlog} | logging_level: {logging_level}")
 
     # Initialize server and start server loop
     server = Server(port, listen_backlog)

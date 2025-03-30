@@ -37,7 +37,7 @@ class Server:
             client_sock = self.__accept_new_connection()
             
             if len(self.client_connections) >= self.max_connections:
-                logging.info(f'max clients connected {self.max_connections}, rejecting new connection')
+                # logging.info(f'max clients connected {self.max_connections}, rejecting new connection')
                 client_sock.sendall(b"ERROR: Maximum number of agencies reached\n")
                 client_sock.close()
                 continue 
@@ -72,24 +72,24 @@ class Server:
                     for line in lines[1:]:
                         parts = line.split("|")
                         if len(parts) != 6:
-                            logging.warning(f"action: parse_bet | result: fail | reason: invalid_format | data: {line}")
+                            # logging.warning(f"action: parse_bet | result: fail | reason: invalid_format | data: {line}")
                             continue  
 
                         bet = Bet(*parts)
                         bets.append(bet)
 
-                    logging.info(f"action: parse_bets | result: success | count: {len(bets)}")
+                    # logging.info(f"action: parse_bets | result: success | count: {len(bets)}")
 
                     store_bets(bets)
 
-                    logging.info(f'action: apuesta_recibida | result: success | cantidad: {len(bets)}')
+                    # logging.info(f'action: apuesta_recibida | result: success | cantidad: {len(bets)}')
 
                     ack_response = utils.ACK_MESSAGE.format("-".join(str(bet.number) for bet in bets))
                     client_sock.sendall("{}\n".format(ack_response).encode('utf-8'))
                 elif msg_type == "delivery-ended":
                     self.clients_finished.add(lines[1])
-                    logging.info(f'Cantidad de clientes que terminaron: {len(self.clients_finished)}')
-                    if len(self.client_connections) == utils.MAX_CONNECTIONS:
+                    # logging.info(f'Cantidad de clientes que terminaron: {len(self.clients_finished)}')
+                    if len(self.clients_finished) == utils.MAX_CONNECTIONS:
                         logging.info("action: sorteo | result: success")
                     continue
                 elif msg_type == "ask-winners":
@@ -117,23 +117,23 @@ class Server:
         Then connection created is printed and returned
         """
         # Connection arrived
-        logging.info('action: accept_connections | result: in_progress')
+        # logging.info('action: accept_connections | result: in_progress')
         c, addr = self._server_socket.accept()
-        logging.info(f'action: accept_connections | result: success | ip: {addr[0]}')
+        # logging.info(f'action: accept_connections | result: success | ip: {addr[0]}')
         return c
         
     def graceful_shutdown(self, signum, frame):
         self.is_running = False
         
-        logging.info(f"stopping server due to received signal: {signum}")
+        # logging.info(f"stopping server due to received signal: {signum}")
         self._server_socket.close()
-        logging.info("server socket was closed")
+        # logging.info("server socket was closed")
         
-        logging.info(f"closing {len(self.client_connections)} client connections")
+        # logging.info(f"closing {len(self.client_connections)} client connections")
 
         for conn in self.client_connections:
             conn.close()
             
-        logging.info("client connections were closed successfully")
+        # logging.info("client connections were closed successfully")
         
         sys.exit(0)
