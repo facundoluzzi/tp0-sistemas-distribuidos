@@ -35,7 +35,7 @@ class Server:
             client_sock = self.__accept_new_connection()
             
             if len(self.client_connections) >= self.max_connections:
-                logging.info(f'max clients connected {self.max_connections}, rejecting new connection')
+                # logging.info(f'max clients connected {self.max_connections}, rejecting new connection')
                 client_sock.sendall(b"ERROR: Maximum number of agencies reached\n")
                 client_sock.close()
                 continue 
@@ -97,23 +97,23 @@ class Server:
         Then connection created is printed and returned
         """
         # Connection arrived
-        logging.info('action: accept_connections | result: in_progress')
+        # logging.info('action: accept_connections | result: in_progress')
         c, addr = self._server_socket.accept()
-        logging.info(f'action: accept_connections | result: success | ip: {addr[0]}')
+        # logging.info(f'action: accept_connections | result: success | ip: {addr[0]}')
         return c
         
     def graceful_shutdown(self, signum, frame):
         self.is_running = False
         
-        logging.info(f"stopping server due to received signal: {signum}")
+        # logging.info(f"stopping server due to received signal: {signum}")
         self._server_socket.close()
-        logging.info("server socket was closed")
+        # logging.info("server socket was closed")
         
-        logging.info(f"closing {len(self.client_connections)} client connections")
+        # logging.info(f"closing {len(self.client_connections)} client connections")
 
         for conn in self.client_connections:
             conn.close()
             
-        logging.info("client connections were closed successfully")
+        # logging.info("client connections were closed successfully")
         
         sys.exit(0)
