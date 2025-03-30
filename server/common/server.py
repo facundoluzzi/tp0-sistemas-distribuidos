@@ -101,7 +101,7 @@ class Server:
 
                     store_bets(bets)
 
-                    # logging.info(f'action: apuesta_recibida | result: success | cantidad: {len(bets)}')
+                    logging.info(f'action: apuesta_recibida | result: success | cantidad: {len(bets)}')
 
                     ack_response = utils.ACK_MESSAGE.format("-".join(str(bet.number) for bet in bets))
                     client_sock.sendall("{}\n".format(ack_response).encode('utf-8'))
@@ -137,24 +137,24 @@ class Server:
         Then connection created is printed and returned
         """
         # Connection arrived
-        logging.info('action: accept_connections | result: in_progress')
+        # logging.info('action: accept_connections | result: in_progress')
         c, addr = self._server_socket.accept()
-        logging.info(f'action: accept_connections | result: success | ip: {addr[0]}')
+        # logging.info(f'action: accept_connections | result: success | ip: {addr[0]}')
         return c
         
     def graceful_shutdown(self, signum, frame):
         self.is_running = False
         
-        logging.info(f"stopping server due to received signal: {signum}")
+        # logging.info(f"stopping server due to received signal: {signum}")
         self._server_socket.close()
-        logging.info("server socket was closed")
+        # logging.info("server socket was closed")
         
         with self.lock:
-            logging.info(f"closing {len(self.client_connections)} client connections")
+            # logging.info(f"closing {len(self.client_connections)} client connections")
             for conn in self.client_connections:
                 conn.close()
             self.client_connections.clear()
             
-        logging.info("client connections were closed successfully")
+        # logging.info("client connections were closed successfully")
         
         sys.exit(0)
