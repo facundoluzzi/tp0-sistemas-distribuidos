@@ -113,24 +113,9 @@ func (c *Client) StartClientLoop(ctx context.Context) {
 		betSize, _ := json.Marshal(bet)
 
 		if len(currentBatch) >= c.config.BatchSize || batchSizeBytes+len(betSize) > c.config.BatchLimitAmount {
-			// betNumbersFormatted := strings.Join(currentBetIDs, "-")
-
-			err := c.sendMessage(c.config.ID, "bets", currentBatch)
-			if err != nil {
-				log.Infof("action: apuestas_enviadas | result: fail | error: %w", err)
+			if err := c.sendBets(currentBetIDs, currentBatch); err != nil {
 				return
 			}
-
-			_, err = c.receiveMessage()
-			if err != nil {
-				return
-			}
-
-			// expectedACK := fmt.Sprintf(BetsACK, betNumbersFormatted)
-
-			// if expectedACK == strings.TrimSpace(response) {
-			// 	log.Infof("action: apuestas_enviadas | result: success | numeros: %v", betNumbersFormatted)
-			// }
 
 			currentBatch = []*Bet{}
 			currentBetIDs = []string{}
@@ -142,24 +127,8 @@ func (c *Client) StartClientLoop(ctx context.Context) {
 		batchSizeBytes += len(betSize)
 	}
 
-	if len(currentBatch) > 0 && len(currentBatch) != c.config.BatchSize {
-		err := c.sendMessage(c.config.ID, "bets", currentBatch)
-		if err != nil {
-			log.Infof("action: apuestas_enviadas | result: fail | error: %w", err)
-		}
-
-		_, err = c.receiveMessage()
-		if err != nil {
-			return
-		}
-
-		// betNumbersFormatted := strings.Join(currentBetIDs, "-")
-
-		// expectedACK := fmt.Sprintf(BetsACK, betNumbersFormatted)
-
-		// if expectedACK == strings.TrimSpace(response) {
-		// 	log.Infof("action: apuestas_enviadas | result: success | numeros: %v", betNumbersFormatted)
-		// }
+	if err := c.sendBets(currentBetIDs, currentBatch); err != nil {
+		return
 	}
 
 	err = c.sendMessage(c.config.ID, "delivery-ended", nil)
@@ -202,6 +171,33 @@ func (c *Client) StartClientLoop(ctx context.Context) {
 	}
 }
 
+func (c *Client) sendBets(betIDs []string, batch []*Bet) error {
+	if len(batch) == 0 {
+		return nil
+	}
+
+	betNumbersFormatted := strings.Join(betIDs, "-")
+
+	err := c.sendMessage(c.config.ID, "bets", batch)
+	if err != nil {
+		log.Infof("action: apuestas_enviadas | result: fail | error: %w", err)
+		return errors.New("error sending bets message")
+	}
+
+	response, err := c.receiveMessage()
+	if err != nil {
+		return errors.New("error receiving bets message ACK")
+	}
+
+	expectedACK := fmt.Sprintf(BetsACK, betNumbersFormatted)
+
+	if expectedACK == strings.TrimSpace(response) {
+		log.Debug("action: apuestas_enviadas | result: success | numeros: %v", betNumbersFormatted)
+	}
+
+	return nil
+}
+
 func (c *Client) closeConn() {
 	if c.conn != nil {
 		c.conn.Close()
@@ -230,15 +226,23 @@ func (c *Client) sendMessage(clientID string, messageType string, data []*Bet) e
 	lengthBytes := make([]byte, 2)
 	binary.BigEndian.PutUint16(lengthBytes, msgLength)
 
+	completeMessage := append(lengthBytes, messageBytes...)
+
 	writer := bufio.NewWriter(c.conn)
-	_, err := writer.Write(append(lengthBytes, messageBytes...))
+	writtenBytes, err := writer.Write(append(lengthBytes, messageBytes...))
 	if err != nil {
 		log.Errorf("action: send_message | result: fail | client_id: %v | error: %v",
 			c.config.ID, err)
 		return err
 	}
 
-	// Flush avoids short write
+	// We check if all bytes were written, if not, we got a short write.
+	if writtenBytes != len(completeMessage) {
+		log.Errorf("action: send_message | result: fail | client_id: %v | error: %v",
+			c.config.ID, errors.New("short write detected"))
+		return err
+	}
+
 	err = writer.Flush()
 	if err != nil {
 		log.Errorf("action: send_message | result: fail | client_id: %v | error: %v",

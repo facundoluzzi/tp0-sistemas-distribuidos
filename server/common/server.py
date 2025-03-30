@@ -78,12 +78,18 @@ class Server:
                     break  
 
                 msg_length = struct.unpack("!H", length_data)[0]
-                msg = client_sock.recv(msg_length).decode().strip()
-
-                if not msg:
-                    continue  
                 
-                lines = msg.split("\n")
+                message = b""
+                
+                while len(message) < msg_length:
+                    chunk = client_sock.recv(msg_length - len(message))
+                    if not chunk:
+                        raise ConnectionError("socket was closed unexpectely")
+                    message += chunk
+                
+                message = message.decode().strip()
+                
+                lines = message.split("\n")
                 msg_type = lines[0]
                 
                 if msg_type == "bets":
