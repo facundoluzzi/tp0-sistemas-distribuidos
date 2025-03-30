@@ -11,7 +11,7 @@ from common.utils import Bet, has_won, store_bets, load_bets
 from common import utils
 
 class Server:
-    def __init__(self, port, listen_backlog, max_connections):
+    def __init__(self, port, listen_backlog):
         # Initialize server socket
         self._server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._server_socket.bind(('', port))
@@ -20,7 +20,7 @@ class Server:
         self.clients_finished = set()
         self.is_running = True
         
-        self.max_connections = int(max_connections)
+        self.max_connections = int(os.environ.get("MAX_CONNECTIONS", 5))
         
         signal.signal(signal.SIGTERM, self.graceful_shutdown)
         signal.signal(signal.SIGINT, self.graceful_shutdown)
@@ -89,11 +89,11 @@ class Server:
                 elif msg_type == "delivery-ended":
                     self.clients_finished.add(lines[1])
                     # logging.info(f'Cantidad de clientes que terminaron: {len(self.clients_finished)}')
-                    if len(self.clients_finished) == self.max_connections:
+                    if len(self.clients_finished) == utils.MAX_CONNECTIONS:
                         logging.info("action: sorteo | result: success")
                     continue
                 elif msg_type == "ask-winners":
-                    if len(self.clients_finished) == self.max_connections:
+                    if len(self.clients_finished) == utils.MAX_CONNECTIONS:
                         bets = load_bets()
                         winners = [bet for bet in bets if has_won(bet)]
                         filtered_winners = [bet for bet in winners if int(bet.agency) == int(lines[1])]
