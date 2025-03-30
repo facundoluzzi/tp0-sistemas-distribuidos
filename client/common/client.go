@@ -87,7 +87,6 @@ func (c *Client) StartClientLoop(ctx context.Context) {
 	var currentBetIDs []string
 	var batchSizeBytes int
 
-	log.Infof("Arrancando a enviar. Batchs de %s items. Tamanio maximo %s", c.config.BatchSize, c.config.BatchLimitAmount)
 	for {
 		select {
 		case <-ctx.Done():
@@ -214,9 +213,8 @@ func (c *Client) sendMessage(clientID string, messageType string, data []*Bet) e
 		return err
 	}
 
-	log.Infof("action: send_message | result: success | message_type: %s ", messageType)
+	// log.Infof("action: send_message | result: success | message_type: %s ", messageType)
 	return nil
-
 }
 
 func (c *Client) receiveMessage() (string, error) {
