@@ -132,8 +132,10 @@ class Server:
             logging.error("action: receive_message | result: fail | error: {e}")
         finally:
             with self.lock:
-                self.client_connections.remove(client_sock)
-            client_sock.close()
+                if client_sock in self.client_connections:
+                    self.client_connections.remove(client_sock)
+                client_sock.close()
+                    
             
     def __accept_new_connection(self):
         """
@@ -151,16 +153,16 @@ class Server:
     def graceful_shutdown(self, signum, frame):
         self.is_running = False
         
-        # logging.info(f"stopping server due to received signal: {signum}")
+        logging.info(f"stopping server due to received signal: {signum}")
         self._server_socket.close()
-        # logging.info("server socket was closed")
+        logging.info("server socket was closed")
         
         with self.lock:
-            # logging.info(f"closing {len(self.client_connections)} client connections")
+            logging.info(f"closing {len(self.client_connections)} client connections")
             for conn in self.client_connections:
                 conn.close()
             self.client_connections.clear()
             
-        # logging.info("client connections were closed successfully")
+        logging.info("client connections were closed successfully")
         
         sys.exit(0)

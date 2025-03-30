@@ -89,6 +89,7 @@ func (c *Client) StartClientLoop(ctx context.Context) {
 			log.Infof("closing client connection due to received signal, client_id: %v", c.config.ID)
 			return
 		default:
+			time.Sleep(time.Second)
 		}
 
 		record, err := reader.Read()
